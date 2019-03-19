@@ -36,6 +36,7 @@ def create_app(test_config=None):
     def hello():
         return 'Hello, World!'
 
+
     @app.route('/upload', methods=['POST'])
     def upload_file():
         if request.method == 'POST':
@@ -55,4 +56,6 @@ def create_app(test_config=None):
                 file.save(os.path.join(app.config['CACHE'], filename))
                 return filename + ' is uploaded'
 
+
     return app
+
