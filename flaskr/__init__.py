@@ -31,13 +31,10 @@ def create_app(test_config=None):
     except OSError:
         pass
 
-
-
     # a simple page that says hello
     @app.route('/hello')
     def hello():
         return 'Hello, World!'
-
 
 
     @app.route('/upload', methods=['POST'])
@@ -47,7 +44,7 @@ def create_app(test_config=None):
             print(request.files)
             if 'file' not in request.files:
                 return 'No file part'
-    
+
             file = request.files['file']
             # if user does not select file, browser also
             # submit a empty part without filename
@@ -59,4 +56,6 @@ def create_app(test_config=None):
                 file.save(os.path.join(app.config['CACHE'], filename))
                 return filename + ' is uploaded'
 
+
     return app
+
