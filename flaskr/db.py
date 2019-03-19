@@ -1,5 +1,6 @@
 import mysql.connector
 import sys
+from utils import eprint
 
 
 class DB:
@@ -20,10 +21,10 @@ class DB:
             val = data
             self.cursor.execute(sql, val)
             self.db.commit()
-        except(e):
-            eprint(e)
+        except:
+            eprint("database upload error")
 
 
 # db = DB()
-# data = ["burincam", "burin123", "amazon", 12.3]
+# data = ["burincam1", "burin1232", "amazon2", 12.3]
 # db.upload_to_client(data)
