@@ -1,6 +1,7 @@
 import os
 
-from flask import Flask, request
+from flask import Flask, request, send_file
+
 from . import utils
 
 
@@ -55,6 +56,14 @@ def create_app(test_config=None):
                 filename = file.filename
                 file.save(os.path.join(app.config['CACHE'], filename))
                 return filename + ' is uploaded'
+
+
+    @app.route('/heatmap/<string:pid>')
+    def get_image(pid):
+        #For windows you need to use drive name [ex: F:/Example.pdf]
+        path = os.path.join(os.getcwd(),'cache/{}'.format(pid))
+        return send_file(path, as_attachment=True)
+
 
 
     return app
