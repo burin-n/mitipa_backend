@@ -115,13 +115,24 @@ class Process:
         print(self.person_type)
     
     def define_movement_heatmap(self):
-        pass          
-
-    def define_entrance(self):
         data = self.data
         movements_matrix = self.movements_matrix
         for person in range(len(self.person_type)):
-            # if self.person_type[person] == LOOP_LEAVE:
+            for timestamp in range(movements_matrix.shape[1]):
+                if movements_matrix[person,timestamp] == INITIAL or movements_matrix[person,timestamp] == MOVING:
+                    y = (data[person][timestamp][0] + data[person][timestamp][2]) / 2
+                    x = (data[person][timestamp][1] + data[person][timestamp][3]) / 2
+                    y = int(y * self.y_grid)
+                    x = int(x * self.x_grid)
+                    self.movement_heatmap[y,x] += 1
+        print('movement heatmap')
+        print(self.movement_heatmap)
+
+    def define_entrance_heatmap(self):
+        data = self.data
+        movements_matrix = self.movements_matrix
+        for person in range(len(self.person_type)):
+            if self.person_type[person] == LOOP_LEAVE:
                 initial_timestamp = np.where(movements_matrix[person] == INITIAL)[0][0]
                 y = (data[person][initial_timestamp][0] + data[person][initial_timestamp][2]) / 2
                 x = (data[person][initial_timestamp][1] + data[person][initial_timestamp][3]) / 2
@@ -201,4 +212,5 @@ process.define_moving_entity(
     }
 )
 process.define_person_state()
-process.define_entrance()
+process.define_entrance_heatmap()
+process.define_movement_heatmap()
