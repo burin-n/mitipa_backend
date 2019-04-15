@@ -5,6 +5,7 @@ import boto3
 import json
 import sys
 from config import Config as config
+# import pickle
 
 
 class VideoDetect:
@@ -14,9 +15,15 @@ class VideoDetect:
     roleArn = config.roleArn
     topicArn = config.topicArn
     bucket = "kukukukay"
-    video = "video.mp4"
 
-    def main(self):
+    # video = "video.mp4"
+
+    def query_and_receive(self, video):
+        self.video = video
+        response = self.query_rekognition()
+        return response
+
+    def query_rekognition(self):
 
         jobFound = False
         sqs = boto3.client('sqs')
@@ -60,7 +67,7 @@ class VideoDetect:
                         print('Matching Job Found:' + rekMessage['JobId'])
                         jobFound = True
                         #=============================================
-                        self.GetResultsPersons(rekMessage['JobId'])
+                        response = self.GetResultsPersons(rekMessage['JobId'])
                         #=============================================
 
                         sqs.delete_message(
@@ -73,56 +80,10 @@ class VideoDetect:
                     sqs.delete_message(QueueUrl=self.queueUrl,
                                        ReceiptHandle=message['ReceiptHandle'])
 
-        print('done')
-
-    def GetResultsLabels(self, jobId):
-        maxResults = 10
-        paginationToken = ''
-        finished = False
-
-        while finished == False:
-            response = self.rek.get_label_detection(JobId=jobId,
-                                                    MaxResults=maxResults,
-                                                    NextToken=paginationToken,
-                                                    SortBy='TIMESTAMP')
-
-            print(response['VideoMetadata']['Codec'])
-            print(str(response['VideoMetadata']['DurationMillis']))
-            print(response['VideoMetadata']['Format'])
-            print(response['VideoMetadata']['FrameRate'])
-
-            for labelDetection in response['Labels']:
-                label = labelDetection['Label']
-
-                print("Timestamp: " + str(labelDetection['Timestamp']))
-                print("   Label: " + label['Name'])
-                print("   Confidence: " + str(label['Confidence']))
-                print("   Instances:")
-                for instance in label['Instances']:
-                    print("      Confidence: " + str(instance['Confidence']))
-                    print("      Bounding box")
-                    print("        Top: " +
-                          str(instance['BoundingBox']['Top']))
-                    print("        Left: " +
-                          str(instance['BoundingBox']['Left']))
-                    print("        Width: " +
-                          str(instance['BoundingBox']['Width']))
-                    print("        Height: " +
-                          str(instance['BoundingBox']['Height']))
-                    print()
-                print()
-                print("   Parents:")
-                for parent in label['Parents']:
-                    print("      " + parent['Name'])
-                print()
-
-                if 'NextToken' in response:
-                    paginationToken = response['NextToken']
-                else:
-                    finished = True
+        return response
 
     def GetResultsPersons(self, jobId):
-        maxResults = 10
+        maxResults = 1000
         paginationToken = ''
         finished = False
         persons_bbs = {}
@@ -142,26 +103,25 @@ class VideoDetect:
                 if 'BoundingBox' not in personDetection['Person']:
                     continue
                 person_bb = personDetection['Person']['BoundingBox']
-                print(person_bb)
+                # print(person_bb)
                 person_timestamp = personDetection['Timestamp']
                 if person_index not in persons_bbs:
                     persons_bbs[person_index] = {}
                 persons_bbs[person_index][person_timestamp] = person_bb
-                # print('Index: ' + str(personDetection['Person']['Index']))
-                # print('Timestamp: ' + str(personDetection['Timestamp']))
-                # print()
 
             if 'NextToken' in response:
                 paginationToken = response['NextToken']
             else:
                 finished = True
-                print(persons_bbs)
+                # pickle.dump(persons_bbs, open("bbs2.p", "wb"))
+                return persons_bbs
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    analyzer = VideoDetect()
-    # analyzer.main()
-    analyzer.GetResultsPersons(
-        jobId="a60a8e87ad9f4efbeff7987d826e42a6fcedf82f3a9d6edd8d4c010ee23dd7c2"
-    )
+#     analyzer = VideoDetect()
+#     analyzer.query_and_receive("video.mp4")
+#     # analyzer.main()
+#     # analyzer.GetResultsPersons(
+#     #     # jobId="a60a8e87ad9f4efbeff7987d826e42a6fcedf82f3a9d6edd8d4c010ee23dd7c2"
+#     # )

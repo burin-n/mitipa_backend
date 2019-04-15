@@ -37,7 +37,7 @@ class DB:
             eprint("database read error")
 
 
-db = DB()
-data = ["burincam1222", "burin123", "amazon2", 13.6]
-# db.upload_to_client(data)
-print(db.read_from_client("burin123"))
+# db = DB()
+# data = ["burincam1222", "burin123", "amazon2", 13.6]
+# # db.upload_to_client(data)
+# print(db.read_from_client("burin123"))
