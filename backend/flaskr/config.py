@@ -10,3 +10,4 @@ class Config:
     # roleArn = "arn:aws:iam::665685927457:role/mitipa-rekognition-service-role"
     roleArn = "arn:aws:iam::665685927457:role/mitipa-role"
     videoBucket = "mitipa-video"
+    dynamoDB_name = "mitipa-database"

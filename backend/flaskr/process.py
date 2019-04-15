@@ -4,6 +4,7 @@ import numpy as np
 INITIAL = 0
 MOVING = 1
 STATIC = 2
+EXIT = 3
 UNK = -1
 
 NOT_EXIST = 0
@@ -35,8 +36,18 @@ class Process:
         self.data = None
         pass
 
-    def define_moving_entity(self, data):
+    def easy_loop_leave_count(self, data):
         self.data = data
+        self.define_moving_entity()
+        self.define_person_state()
+        loop_leave_count = 0
+        for person_state in self.person_type:
+            if person_state == LOOP_LEAVE:
+                loop_leave_count += 1
+        return loop_leave_count
+
+    def define_moving_entity(self):
+        data = self.data
         movements = {}
         person_count = 0
         for person in data:
@@ -67,27 +78,48 @@ class Process:
             movements[person] = movement
         self.timestamps = list(self.timestamps)
         self.timestamps.sort()
-        self.movements_matrix = np.ones((person_count, len(self.timestamps))).astype(int) * -1
-        self.existence_matrix = np.zeros((person_count, len(self.timestamps))).astype(int)
+        self.movements_matrix = np.ones(
+            (person_count, len(self.timestamps))).astype(int) * -1
+        self.existence_matrix = np.zeros(
+            (person_count, len(self.timestamps))).astype(int)
         for person in movements:
             for timestamp in movements[person]:
                 self.movements_matrix[
                     int(person), self.timestamps.
                     index(timestamp)] = movements[person][timestamp]
-                self.existence_matrix[
-                    int(person), self.timestamps.index(timestamp)]= 1
+                self.existence_matrix[int(person),
+                                      self.timestamps.index(timestamp)] = 1
         print('movement matrix')
+        print('shape ', self.movements_matrix.shape)
         print(self.movements_matrix)
-        print('entrance matrix')
+        print('existence matrix')
         print(self.existence_matrix)
+
+    def define_person_exit(self):
+        movements_matrix = self.movements_matrix
+        existence_matrix = self.existence_matrix
+        # print('movements_matrix', movements_matrix.shape)
+        # print('existence_matrix', existence_matrix.shape)
+        for person in range(movements_matrix.shape[0]):
+            if existence_matrix[person, existence_matrix.shape[1] - 1] == 0:
+                for i in range(movements_matrix.shape[1]):
+                    index = movements_matrix.shape[1] - 1 - i
+                    if movements_matrix[person][index] == MOVING:
+                        movements_matrix[person][index] = EXIT
+                        break
+        self.movements_matrix = movements_matrix
+        print('movements matrix with exit')
+        print(self.movements_matrix)
 
     def define_person_state(self):
         existence_matrix = self.existence_matrix
         for person in range(existence_matrix.shape[0]):
-            existence = existence_matrix[person,:]
+            existence = existence_matrix[person, :]
             if np.sum(existence) == existence.shape[0]:
                 #appear in the whole sequence
-                if np.sum(self.movements_matrix[person,:]) == INITIAL + STATIC * (self.movements_matrix[person,:].shape[0]-1):
+                if np.sum(self.movements_matrix[person, :]
+                          ) == INITIAL + STATIC * (
+                              self.movements_matrix[person, :].shape[0] - 1):
                     #been sitting the whole time
                     self.person_type.append(SITTING)
                     continue
@@ -113,18 +145,22 @@ class Process:
                 continue
         print('person type')
         print(self.person_type)
-    
+
     def define_movement_heatmap(self):
         data = self.data
         movements_matrix = self.movements_matrix
         for person in range(len(self.person_type)):
             for timestamp in range(movements_matrix.shape[1]):
-                if movements_matrix[person,timestamp] == INITIAL or movements_matrix[person,timestamp] == MOVING:
-                    y = (data[person][timestamp][0] + data[person][timestamp][2]) / 2
-                    x = (data[person][timestamp][1] + data[person][timestamp][3]) / 2
+                if movements_matrix[person,
+                                    timestamp] == INITIAL or movements_matrix[
+                                        person, timestamp] == MOVING:
+                    y = (data[person][self.timestamps[timestamp]][0] +
+                         data[person][self.timestamps[timestamp]][2]) / 2
+                    x = (data[person][self.timestamps[timestamp]][1] +
+                         data[person][self.timestamps[timestamp]][3]) / 2
                     y = int(y * self.y_grid)
                     x = int(x * self.x_grid)
-                    self.movement_heatmap[y,x] += 1
+                    self.movement_heatmap[y, x] += 1
         print('movement heatmap')
         print(self.movement_heatmap)
 
@@ -133,12 +169,18 @@ class Process:
         movements_matrix = self.movements_matrix
         for person in range(len(self.person_type)):
             if self.person_type[person] == LOOP_LEAVE:
-                initial_timestamp = np.where(movements_matrix[person] == INITIAL)[0][0]
-                y = (data[person][initial_timestamp][0] + data[person][initial_timestamp][2]) / 2
-                x = (data[person][initial_timestamp][1] + data[person][initial_timestamp][3]) / 2
+                initial_timestamp = np.where(
+                    movements_matrix[person] == INITIAL)[0][0]
+                # print('data[person]', data[person])
+                # print('data[person][initial_timestamp]',
+                #       data[person][self.timestamps[initial_timestamp]])
+                y = (data[person][self.timestamps[initial_timestamp]][0] +
+                     data[person][self.timestamps[initial_timestamp]][2]) / 2
+                x = (data[person][self.timestamps[initial_timestamp]][1] +
+                     data[person][self.timestamps[initial_timestamp]][3]) / 2
                 y = int(y * self.y_grid)
                 x = int(x * self.x_grid)
-                self.entrance_heatmap[y,x] += 1
+                self.entrance_heatmap[y, x] += 1
         print('entrance heatmap')
         print(self.entrance_heatmap)
 
@@ -151,66 +193,13 @@ class Process:
     #     for person in data:
 
 
-process = Process()
-process.define_moving_entity(
-    data= {
-        0:{
-            0:{
-                "Height": 0.8787037134170532,
-                "Left": 0.00572916679084301,
-                "Top": 0.12129629403352737,
-                "Width": 0.21666666865348816
-            },
-            1:{
-                "Height": 0.8787037134170532,
-                "Left": 0.00572916679084301,
-                "Top": 0.12129629403352737,
-                "Width": 0.21666666865348816
-            },
-            2:{
-                "Height": 0.8787037134170532,
-                "Left": 0.00572916679084301,
-                "Top": 0.12129629403352737,
-                "Width": 0.21666666865348816
-            }
-        },
-        1:{
-            0:{
-                "Height": 0.8787037134170532,
-                "Left": 0.00572916679084301,
-                "Top": 0.12129629403352737,
-                "Width": 0.21666666865348816
-            },
-            1:{
-                "Height": 0.8787037134170532,
-                "Left": 0.00572916679084301,
-                "Top": 0.12129629403352737,
-                "Width": 0.21666666865348816
-            },
-            2:{
-                "Height": 0.8787037134170532,
-                "Left": 0.00572916679084301,
-                "Top": 0.12129629403352737,
-                "Width": 0.21666666865348816
-            }
-        },
-        2:{
-            0:{
-                "Height": 0.8787037134170532,
-                "Left": 0.00572916679084301,
-                "Top": 0.12129629403352737,
-                "Width": 0.21666666865348816
-            },
-            1:{
-                "Height": 0.8787037134170532,
-                "Left": 0.00572916679084301,
-                "Top": 0.12129629403352737,
-                "Width": 0.21666666865348816
-            }
-        },
-        
-    }
-)
-process.define_person_state()
-process.define_entrance_heatmap()
-process.define_movement_heatmap()
+# import pickle
+# data = pickle.load(open("bbs.p", "rb"))
+
+# process = Process()
+# print(process.easy_loop_leave_count(data))
+# process.define_moving_entity(data=data)
+# process.define_person_exit()
+# process.define_person_state()
+# process.define_entrance_heatmap()
+# process.define_movement_heatmap()
