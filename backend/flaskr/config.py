@@ -8,6 +8,6 @@ class Config:
     topicArn = "arn:aws:sns:ap-northeast-1:665685927457:AmazonRekognition"
     queueUrl = "https://sqs.ap-northeast-1.amazonaws.com/665685927457/mitipa-rekognition-queue"
     # roleArn = "arn:aws:iam::665685927457:role/mitipa-rekognition-service-role"
-    roleArn = "arn:aws:iam::665685927457:role/mitipa-role"
+    roleArn = "arn:aws:iam::665685927457:role/mitipa-rekognition"
     videoBucket = "mitipa-video"
     dynamoDB_name = "mitipa-database"

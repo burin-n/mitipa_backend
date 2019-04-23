@@ -1,18 +1,6 @@
 import math
 import numpy as np
 
-INITIAL = 0
-MOVING = 1
-STATIC = 2
-EXIT = 3
-UNK = -1
-
-NOT_EXIST = 0
-EXIST = 1
-
-APPEAR = 3
-DISAPPEAR = 4
-
 SITTING = 0
 ENTER = 1
 LEAVE = 2
@@ -23,39 +11,53 @@ WANDERING = 5
 
 class Process:
     def __init__(self):
-        self.x_grid = 20
-        self.y_grid = 10
-        self.movement_heatmap = np.zeros((self.y_grid, self.x_grid))
-        self.entrance_heatmap = np.zeros((self.y_grid, self.x_grid))
-        self.threshold = 0.01
-        self.movements_matrix = None
-        self.existence_matrix = None
-        self.person_type = []
+        self.x_grid = 10
+        self.y_grid = 5
+        self.coord_matrix = None  #(person, timestamp, [y_coord, x_coord])
+        self.existence_heatmap = np.zeros(
+            (self.y_grid, self.x_grid)).astype(int)
+        self.sitting_heatmap = np.zeros((self.y_grid, self.x_grid)).astype(int)
+        self.person_state = None
+        self.timestamp_buffer = 5
         self.timestamps = set()
-        self.timestamps_margin = 0.1
         self.data = None
         pass
 
-    def easy_loop_leave_count(self, data):
+    def process_score(self, data):
         self.data = data
-        self.define_moving_entity()
+        self.define_timestamps()
+        self.create_persons_heatmap()
         self.define_person_state()
-        loop_leave_count = 0
-        for person_state in self.person_type:
-            if person_state == LOOP_LEAVE:
-                loop_leave_count += 1
-        return loop_leave_count
+        self.define_existence_heatmap()
+        self.define_sitting_heatmap()
+        result = self.get_person_state_count()
+        return {
+            "existence_heatmap": self.existence_heatmap.tolist(),
+            "sitting_heatmap": self.sitting_heatmap.tolist(),
+            "person_state": self.person_state
+        }
 
-    def define_moving_entity(self):
+    def set_data(self, data):
+        self.data = data
+        return
+
+    def define_timestamps(self):
         data = self.data
-        movements = {}
-        person_count = 0
         for person in data:
-            person_count += 1
-            recent_bb = None
-            movement = {}
             for timestamp in data[person]:
                 self.timestamps.add(timestamp)
+        self.timestamps = list(self.timestamps)
+        self.timestamps.sort()
+        return
+
+    def create_persons_heatmap(self):
+        timestamps = self.timestamps
+        data = self.data
+        coord_matrix = np.ones(
+            (len(data), len(self.timestamps), 2)).astype(int) * -1
+        for person in self.data:
+            person_data = self.data[person]
+            for timestamp in person_data:
                 bb = [
                     data[person][timestamp]['Top'],
                     data[person][timestamp]['Left'],
@@ -64,142 +66,127 @@ class Process:
                     data[person][timestamp]['Left'] +
                     data[person][timestamp]['Width']
                 ]
-                self.data[person][timestamp] = bb
-                if recent_bb is None:
-                    recent_bb = bb
-                    movement[timestamp] = INITIAL
-                    continue
-                distance = self.calc_bb_distance(bb, recent_bb)
-                recent_bb = bb
-                if distance >= self.threshold:
-                    movement[timestamp] = MOVING
-                else:
-                    movement[timestamp] = STATIC
-            movements[person] = movement
-        self.timestamps = list(self.timestamps)
-        self.timestamps.sort()
-        self.movements_matrix = np.ones(
-            (person_count, len(self.timestamps))).astype(int) * -1
-        self.existence_matrix = np.zeros(
-            (person_count, len(self.timestamps))).astype(int)
-        for person in movements:
-            for timestamp in movements[person]:
-                self.movements_matrix[
-                    int(person), self.timestamps.
-                    index(timestamp)] = movements[person][timestamp]
-                self.existence_matrix[int(person),
-                                      self.timestamps.index(timestamp)] = 1
-        print('movement matrix')
-        print('shape ', self.movements_matrix.shape)
-        print(self.movements_matrix)
-        print('existence matrix')
-        print(self.existence_matrix)
-
-    def define_person_exit(self):
-        movements_matrix = self.movements_matrix
-        existence_matrix = self.existence_matrix
-        # print('movements_matrix', movements_matrix.shape)
-        # print('existence_matrix', existence_matrix.shape)
-        for person in range(movements_matrix.shape[0]):
-            if existence_matrix[person, existence_matrix.shape[1] - 1] == 0:
-                for i in range(movements_matrix.shape[1]):
-                    index = movements_matrix.shape[1] - 1 - i
-                    if movements_matrix[person][index] == MOVING:
-                        movements_matrix[person][index] = EXIT
-                        break
-        self.movements_matrix = movements_matrix
-        print('movements matrix with exit')
-        print(self.movements_matrix)
-
-    def define_person_state(self):
-        existence_matrix = self.existence_matrix
-        for person in range(existence_matrix.shape[0]):
-            existence = existence_matrix[person, :]
-            if np.sum(existence) == existence.shape[0]:
-                #appear in the whole sequence
-                if np.sum(self.movements_matrix[person, :]
-                          ) == INITIAL + STATIC * (
-                              self.movements_matrix[person, :].shape[0] - 1):
-                    #been sitting the whole time
-                    self.person_type.append(SITTING)
-                    continue
-                else:
-                    self.person_type.append(WANDERING)
-                    continue
-            if np.sum(existence[0:1]) == 0:
-                # appear later
-                if np.sum(existence[-1:]) == 0:
-                    #disappear in the end
-                    self.person_type.append(LOOP_LEAVE)
-                    continue
-                else:
-                    self.person_type.append(ENTER)
-                    continue
-            elif np.sum(existence[-1:]) == 0:
-                #exist first then disappear
-                self.person_type.append(LEAVE)
-                continue
-            else:
-                #temporarily disappear
-                self.person_type.append(TEMP_LEAVE)
-                continue
-        print('person type')
-        print(self.person_type)
-
-    def define_movement_heatmap(self):
-        data = self.data
-        movements_matrix = self.movements_matrix
-        for person in range(len(self.person_type)):
-            for timestamp in range(movements_matrix.shape[1]):
-                if movements_matrix[person,
-                                    timestamp] == INITIAL or movements_matrix[
-                                        person, timestamp] == MOVING:
-                    y = (data[person][self.timestamps[timestamp]][0] +
-                         data[person][self.timestamps[timestamp]][2]) / 2
-                    x = (data[person][self.timestamps[timestamp]][1] +
-                         data[person][self.timestamps[timestamp]][3]) / 2
-                    y = int(y * self.y_grid)
-                    x = int(x * self.x_grid)
-                    self.movement_heatmap[y, x] += 1
-        print('movement heatmap')
-        print(self.movement_heatmap)
-
-    def define_entrance_heatmap(self):
-        data = self.data
-        movements_matrix = self.movements_matrix
-        for person in range(len(self.person_type)):
-            if self.person_type[person] == LOOP_LEAVE:
-                initial_timestamp = np.where(
-                    movements_matrix[person] == INITIAL)[0][0]
-                # print('data[person]', data[person])
-                # print('data[person][initial_timestamp]',
-                #       data[person][self.timestamps[initial_timestamp]])
-                y = (data[person][self.timestamps[initial_timestamp]][0] +
-                     data[person][self.timestamps[initial_timestamp]][2]) / 2
-                x = (data[person][self.timestamps[initial_timestamp]][1] +
-                     data[person][self.timestamps[initial_timestamp]][3]) / 2
+                y = (bb[0] + bb[2]) / 2
+                x = (bb[1] + bb[3]) / 2
                 y = int(y * self.y_grid)
                 x = int(x * self.x_grid)
-                self.entrance_heatmap[y, x] += 1
-        print('entrance heatmap')
-        print(self.entrance_heatmap)
+                # print("{};{}: {}, {}".format(person, timestamp, y, x))
+                coord_matrix[person, timestamps.index(timestamp
+                                                      ), :] = np.array([y, x])
+        self.coord_matrix = coord_matrix
+        return
 
-    def calc_bb_distance(self, a, b):
-        return math.sqrt(
-            math.pow(((a[0] + a[2]) / 2) - ((b[0] + b[2]) / 2), 2) +
-            math.pow(((a[1] + a[3]) / 2) - ((b[1] + b[3]) / 2), 2))
+    def define_person_state(self):
+        coord_matrix = self.coord_matrix
+        person_state = []
+        timestamps = self.timestamps
+        for person in range(coord_matrix.shape[0]):
+            person_coords = coord_matrix[person, :]
+            unique_coords = set()
+            #check sitting
+            for timestamp in range(person_coords.shape[0]):
+                coord = person_coords[timestamp]
+                if np.equal(coord, np.array([-1, -1]))[0]:
+                    continue
+                else:
+                    unique_coords.add(tuple(coord.tolist()))
+            if len(unique_coords) == 1:
+                person_state.append(SITTING)
+                continue
+            #check disappear first and later
+            target_first = list(range(0, self.timestamp_buffer))
+            target_later = list(
+                range(
+                    len(timestamps) - self.timestamp_buffer, len(timestamps)))
+            disappear_first = False
+            disappear_later = False
+            for target_timestamp in target_first:
+                if person_coords[target_timestamp][0] != -1:
+                    break
+            else:
+                disappear_first = True
 
-    # def find_entrance(self, data):
-    #     for person in data:
+            for target_timestamp in target_later:
+                if person_coords[target_timestamp][0] != -1:
+                    break
+            else:
+                disappear_later = True
+            if disappear_first and disappear_later:
+                person_state.append(LOOP_LEAVE)
+                continue
+            if disappear_first and not disappear_later:
+                person_state.append(ENTER)
+                continue
+            if not disappear_first and disappear_later:
+                person_state.append(LEAVE)
+                continue
+            else:
+                person_state.append(WANDERING)
+        self.person_state = person_state
+        print("person state")
+        print(person_state)
+        return
+
+    def define_existence_heatmap(self):
+        coord_matrix = self.coord_matrix
+        existence_heatmap = self.existence_heatmap
+        for person in range(coord_matrix.shape[0]):
+            coords = coord_matrix[person]
+            for timestamp in range(coords.shape[0]):
+                if coords[timestamp][0] != -1:
+                    coord = coords[timestamp]
+                    existence_heatmap[coord[0], coord[1]] += 1
+        self.existence_heatmap = existence_heatmap
+        print("existence heatmap")
+        print(existence_heatmap)
+        return
+
+    def define_sitting_heatmap(self):
+        coord_matrix = self.coord_matrix
+        sitting_heatmap = self.sitting_heatmap
+        person_state = self.person_state
+        for person in range(coord_matrix.shape[0]):
+            if (person_state[person] == SITTING):
+                coords = coord_matrix[person]
+                for timestamp in range(coords.shape[0]):
+                    if coords[timestamp][0] != -1:
+                        coord = coords[timestamp]
+                        sitting_heatmap[coord[0], coord[1]] += 1
+                        break
+        self.sitting_heatmap = sitting_heatmap
+        print("sitting heatmap")
+        print(sitting_heatmap)
+        return
+
+    def get_person_state_count(self):
+        person_state = self.person_state
+        result = {
+            "SITTING": 0,
+            "ENTER": 0,
+            "LEAVE": 0,
+            "TEMP_LEAVE": 0,
+            "LOOP_LEAVE": 0,
+            "WANDERING": 0
+        }
+        for state in person_state:
+            if state == SITTING: result["SITTING"] += 1
+            if state == ENTER: result["ENTER"] += 1
+            if state == LEAVE: result["LEAVE"] += 1
+            if state == TEMP_LEAVE: result["TEMP_LEAVE"] += 1
+            if state == LOOP_LEAVE: result["LOOP_LEAVE"] += 1
+            if state == WANDERING: result["WANDERING"] += 1
+        return result
 
 
 # import pickle
-# data = pickle.load(open("bbs.p", "rb"))
+# data = pickle.load(open("bbs4.p", "rb"))
 
-# process = Process()
-# print(process.easy_loop_leave_count(data))
-# process.define_moving_entity(data=data)
-# process.define_person_exit()
-# process.define_person_state()
-# process.define_entrance_heatmap()
-# process.define_movement_heatmap()
+# process = GoodProcess()
+# print(process.process_score(data))
+# # process.set_data(data)
+# # process.define_timestamps()
+# # process.create_persons_heatmap()
+# # process.define_person_state()
+# # process.define_existence_heatmap()
+# # process.define_sitting_heatmap()
+# # print(process.get_person_state_count())

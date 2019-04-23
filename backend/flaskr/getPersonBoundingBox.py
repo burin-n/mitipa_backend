@@ -5,7 +5,7 @@ import boto3
 import json
 import sys
 from config import Config as config
-# import pickle
+import pickle
 
 
 class VideoDetect:
@@ -113,15 +113,15 @@ class VideoDetect:
                 paginationToken = response['NextToken']
             else:
                 finished = True
-                # pickle.dump(persons_bbs, open("bbs2.p", "wb"))
+                pickle.dump(persons_bbs, open("bbs4.p", "wb"))
                 return persons_bbs
 
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
 
-#     analyzer = VideoDetect()
-#     analyzer.query_and_receive("video.mp4")
-#     # analyzer.main()
-#     # analyzer.GetResultsPersons(
-#     #     # jobId="a60a8e87ad9f4efbeff7987d826e42a6fcedf82f3a9d6edd8d4c010ee23dd7c2"
-#     # )
+    analyzer = VideoDetect()
+    analyzer.query_and_receive("305_1.mp4")
+    # analyzer.main()
+    # analyzer.GetResultsPersons(
+    #     # jobId="a60a8e87ad9f4efbeff7987d826e42a6fcedf82f3a9d6edd8d4c010ee23dd7c2"
+    # )

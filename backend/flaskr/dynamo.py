@@ -39,7 +39,9 @@ class DynamoDB:
             Item={
                 "clientId": data["clientId"],
                 "location": data["location"],
-                "score": data["score"]
+                "sitting_heatmap": data["sitting_heatmap"],
+                "existence_heatmap": data["existence_heatmap"],
+                "person_state": data["person_state"]
             })
         print("PutItem succeeded:")
         print(json.dumps(response, indent=4, cls=DecimalEncoder))
